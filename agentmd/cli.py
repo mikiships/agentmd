@@ -119,16 +119,26 @@ def generate(
 
 @app.command()
 def score(
-    path: str = typer.Argument(None, help="Project root (defaults to cwd)"),
+    path: str = typer.Argument(None, help="Project root or context file (defaults to cwd)"),
 ) -> None:
-    """Score existing context files in a project."""
-    root = _resolve_path(path)
+    """Score existing context files in a project (or a single file)."""
+    resolved = _resolve_path(path)
+    scorer = ContextScorer()
+
+    # If the user passed a specific file, score just that file.
+    if resolved.is_file():
+        file_content = resolved.read_text(encoding="utf-8")
+        project_root = str(resolved.parent)
+        result = scorer.score(file_content, file_path=str(resolved), project_root=project_root)
+        _print_score(resolved.name, result)
+        return
+
+    root = resolved
     if not root.is_dir():
-        typer.echo(f"Error: {root} is not a directory", err=True)
+        typer.echo(f"Error: {root} is not a file or directory", err=True)
         raise typer.Exit(1)
 
     analysis = ProjectAnalyzer().analyze(root)
-    scorer = ContextScorer()
 
     found_any = False
     for ctx in analysis.existing_context_files:
@@ -136,22 +146,26 @@ def score(
             continue
         found_any = True
         file_path = (root / ctx.path).resolve()
-        content = file_path.read_text(encoding="utf-8")
-        result = scorer.score(content, file_path=str(file_path), project_root=str(root))
-
-        typer.echo(f"\n{ctx.name}")
-        typer.echo("-" * len(ctx.name))
-        for dim in result.dimensions:
-            bar = "#" * int(dim.score / 10)
-            typer.echo(f"  {dim.name:<18} {dim.score:5.1f}  [{bar:<10}]  weight={dim.weight:.2f}")
-        typer.echo(f"  {'composite':<18} {result.composite_score:5.1f}")
-        if result.suggestions:
-            typer.echo("  Suggestions:")
-            for s in result.suggestions:
-                typer.echo(f"    - {s}")
+        file_content = file_path.read_text(encoding="utf-8")
+        result = scorer.score(file_content, file_path=str(file_path), project_root=str(root))
+        _print_score(ctx.name, result)
 
     if not found_any:
         typer.echo("No context files found. Run `agentmd generate` first.")
+
+
+def _print_score(name: str, result: object) -> None:
+    """Print score results for a single context file."""
+    typer.echo(f"\n{name}")
+    typer.echo("-" * len(name))
+    for dim in result.dimensions:
+        bar = "#" * int(dim.score / 10)
+        typer.echo(f"  {dim.name:<18} {dim.score:5.1f}  [{bar:<10}]  weight={dim.weight:.2f}")
+    typer.echo(f"  {'composite':<18} {result.composite_score:5.1f}")
+    if result.suggestions:
+        typer.echo("  Suggestions:")
+        for s in result.suggestions:
+            typer.echo(f"    - {s}")
 
 
 # ---------------------------------------------------------------------------
