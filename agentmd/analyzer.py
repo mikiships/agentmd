@@ -9,6 +9,7 @@ from pathlib import Path
 from agentmd.detectors import (
     detect_ci_systems,
     detect_frameworks,
+    detect_go_project,
     detect_languages,
     detect_linters,
     detect_package_managers,
@@ -83,6 +84,7 @@ class ProjectAnalyzer:
         ci_findings = detect_ci_systems(root, files)
         swift_findings = detect_swift_project(root, files)
         rust_findings = detect_rust_project(root, files)
+        go_findings = detect_go_project(root, files)
 
         directory_structure = self._analyze_directory_structure(root, files)
         git_history = self._analyze_git_history(root)
@@ -97,6 +99,7 @@ class ProjectAnalyzer:
             "ci_systems": ci_findings.evidence,
             "swift": swift_findings.evidence,
             "rust": rust_findings.evidence,
+            "go": go_findings.evidence,
             "directory_structure": {
                 "source_directories": directory_structure.source_directories,
                 "test_directories": directory_structure.test_directories,
@@ -117,6 +120,7 @@ class ProjectAnalyzer:
             ci_systems=ci_findings.values,
             swift_components=swift_findings.values,
             rust_components=rust_findings.values,
+            go_components=go_findings.values,
             directory_structure=directory_structure,
             git_history=git_history,
             existing_context_files=context_files,
