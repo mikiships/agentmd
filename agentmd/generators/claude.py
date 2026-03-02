@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from agentmd.generators.base import BaseGenerator
+from agentmd.generators.base import (
+    BaseGenerator,
+    _swift_build_commands,
+    _rust_build_commands,
+    _go_build_commands,
+)
 
 
 class ClaudeGenerator(BaseGenerator):
@@ -52,6 +57,45 @@ class ClaudeGenerator(BaseGenerator):
                 f"- After every non-trivial change, run `{test_cmds[0]}` to confirm nothing broke."
             )
 
+        a = self.analysis
+        # Swift-specific Claude Code tips
+        if a.swift_components:
+            swift_cmds = _swift_build_commands(a)
+            lines.append(
+                f"- Use `/terminal` to run Swift build: `{swift_cmds[0]}`"
+            )
+            lines.append(
+                "- Use `/search` to locate Swift files — Xcode project structure can be deep."
+            )
+            if "SwiftLint" in a.swift_components:
+                lines.append("- Run `swiftlint lint` before committing to catch style violations early.")
+            if "spm" in a.swift_components:
+                lines.append("- Swift Package Manager: resolve dependencies with `swift package resolve`.")
+
+        # Rust-specific Claude Code tips
+        if a.rust_components:
+            lines.append(
+                "- Run `cargo check` for fast type-checking without a full build."
+            )
+            lines.append(
+                "- Run `cargo clippy -- -D warnings` before committing to catch common mistakes."
+            )
+            lines.append(
+                "- Use `cargo test -- --nocapture` to see `println!` output during tests."
+            )
+
+        # Go-specific Claude Code tips
+        if a.go_components:
+            lines.append(
+                "- Run `go build ./...` to type-check the whole module quickly."
+            )
+            lines.append(
+                "- Use `go test -run TestName ./...` to run a single test by name."
+            )
+            lines.append(
+                "- Run `go vet ./...` before committing to catch common correctness issues."
+            )
+
         return "\n".join(lines)
 
     def _section_style_guide(self) -> str:
@@ -94,6 +138,14 @@ class ClaudeGenerator(BaseGenerator):
                 "- Document public items with `///` doc comments.",
             ]
 
+        if "swift" in langs:
+            lines += [
+                "- Run `swift-format` or `swiftlint` before every commit.",
+                "- Prefer `struct` over `class` for value semantics.",
+                "- Use Swift's `Result` type or `throws` for explicit error handling.",
+                "- Guard against optional unwrapping failures with `guard let` or `if let`.",
+            ]
+
         if len(lines) == 1:
             lines.append("_(No language-specific style guide inferred — add rules here.)_")
 
@@ -126,6 +178,19 @@ class ClaudeGenerator(BaseGenerator):
             lines += [
                 "- **Do not** ignore returned errors (assign to `_`).",
                 "- **Do not** use `init()` functions unless absolutely necessary.",
+            ]
+
+        if "swift" in langs:
+            lines += [
+                "- **Do not** force-unwrap optionals (`!`) without a guaranteed non-nil guarantee.",
+                "- **Do not** use `DispatchQueue.main.sync` from the main thread — it deadlocks.",
+                "- **Do not** mutate state from multiple threads without synchronization.",
+            ]
+
+        if "rust" in langs:
+            lines += [
+                "- **Do not** use `unwrap()` or `expect()` in production code paths.",
+                "- **Do not** introduce `unsafe` blocks without a clear safety comment.",
             ]
 
         return "\n".join(lines)

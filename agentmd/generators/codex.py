@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from agentmd.generators.base import BaseGenerator, _test_commands, _lint_commands
+from agentmd.generators.base import (
+    BaseGenerator,
+    _test_commands,
+    _lint_commands,
+    _swift_build_commands,
+    _rust_build_commands,
+    _go_build_commands,
+)
 
 
 class CodexGenerator(BaseGenerator):
@@ -51,6 +58,47 @@ class CodexGenerator(BaseGenerator):
                 "- Node dependencies: run the install command before running tests."
             )
 
+        # Swift sandbox notes
+        if a.swift_components:
+            lines.append(
+                "- Swift/Xcode builds require macOS. If running in a Linux sandbox, use Swift Package Manager (`swift build/test`) — Xcode is not available."
+            )
+            if "xcodeproj" in a.swift_components or "xcworkspace" in a.swift_components:
+                lines.append(
+                    "- `xcodebuild` requires a valid scheme. Run `xcodebuild -list` to discover available schemes."
+                )
+            if "cocoapods" in a.swift_components:
+                lines.append(
+                    "- CocoaPods: run `pod install` before building; use the `.xcworkspace` (not `.xcodeproj`) afterward."
+                )
+
+        # Rust sandbox notes
+        if a.rust_components:
+            lines.append(
+                "- Rust builds may require downloading crates. Ensure `cargo build` runs before `cargo test` in a cold sandbox."
+            )
+            lines.append(
+                "- `cargo clippy` and `cargo fmt` are separate tools — both must pass before a task is complete."
+            )
+            components = a.rust_components
+            if any(c in components for c in ("diesel", "sqlx")):
+                lines.append(
+                    "- Database crates (diesel/sqlx) require a running database or migrations; mock the DB layer in sandbox tests."
+                )
+
+        # Go sandbox notes
+        if a.go_components:
+            lines.append(
+                "- Go module dependencies: run `go mod download` before building in an offline sandbox."
+            )
+            lines.append(
+                "- `go vet ./...` is cheap and catches real bugs — run it after every change."
+            )
+            if any(c in a.go_components for c in ("gorm", "ent")):
+                lines.append(
+                    "- Database packages require a live DB or mocked interface; do not make real DB calls in sandbox tests."
+                )
+
         return "\n".join(lines)
 
     def _section_apply_patch_notes(self) -> str:
@@ -75,11 +123,29 @@ class CodexGenerator(BaseGenerator):
 
         if test_cmds:
             lines.append(f"- [ ] Tests pass: `{test_cmds[0]}`")
+        elif a.swift_components:
+            swift_cmds = _swift_build_commands(a)
+            lines.append(f"- [ ] Tests pass: `{swift_cmds[1] if len(swift_cmds) > 1 else swift_cmds[0]}`")
+        elif a.rust_components:
+            lines.append("- [ ] Tests pass: `cargo test`")
+        elif a.go_components:
+            lines.append("- [ ] Tests pass: `go test ./...`")
         else:
             lines.append("- [ ] Tests pass (add test command here)")
 
         if lint_cmds:
             lines.append(f"- [ ] Linting clean: `{lint_cmds[0]}`")
+        elif a.rust_components:
+            lines.append("- [ ] Linting clean: `cargo clippy -- -D warnings`")
+        elif a.go_components:
+            lines.append("- [ ] Linting clean: `go vet ./...`")
+        elif a.swift_components and "SwiftLint" in a.swift_components:
+            lines.append("- [ ] Linting clean: `swiftlint lint`")
+
+        if a.rust_components:
+            lines.append("- [ ] Formatting clean: `cargo fmt --check`")
+        if a.go_components:
+            lines.append("- [ ] Formatting clean: `gofmt -l . | grep -q . && exit 1 || true`")
 
         lines += [
             "- [ ] No unintended files modified (check `git diff --stat`)",

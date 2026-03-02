@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
-from agentmd.generators.base import BaseGenerator, _test_commands, _lint_commands
+from agentmd.generators.base import (
+    BaseGenerator,
+    _test_commands,
+    _lint_commands,
+    _swift_build_commands,
+    _rust_build_commands,
+    _go_build_commands,
+    _swift_conventions,
+    _rust_conventions,
+    _go_conventions,
+)
 
 
 class CopilotGenerator(BaseGenerator):
@@ -84,6 +94,28 @@ class CopilotGenerator(BaseGenerator):
                 "- Keep `unsafe` blocks small and document the invariant being upheld.",
             ]
 
+        if "swift" in langs or a.swift_components:
+            lines += [
+                "### Swift",
+                "- Prefer `struct` and `enum` over `class` for value semantics.",
+                "- Use `guard let` for early returns on nil; avoid force-unwrap (`!`) in production code.",
+                "- Mark view controllers and delegate callbacks `@MainActor` where UI mutations occur.",
+                "- Use `Result<T, Error>` or `throws` for explicit error paths.",
+            ]
+            if a.swift_components:
+                if "SwiftUI" in a.swift_components:
+                    lines += [
+                        "- SwiftUI: keep `body` computed property thin; extract subviews into separate `View` structs.",
+                        "- SwiftUI: use `@StateObject` for owned models, `@ObservedObject` for injected ones.",
+                    ]
+                if "UIKit" in a.swift_components:
+                    lines += [
+                        "- UIKit: configure views in `viewDidLoad`; update UI on the main thread only.",
+                        "- UIKit: use Auto Layout programmatically or via Interface Builder — avoid fixed frames.",
+                    ]
+                if "SwiftLint" in a.swift_components:
+                    lines.append("- Code style enforced by SwiftLint; run `swiftlint lint` before committing.")
+
         if len(lines) == 1:
             lines.append("_(No language-specific standards inferred — add coding standards here.)_")
 
@@ -136,6 +168,18 @@ class CopilotGenerator(BaseGenerator):
                 "- Use `#[should_panic]` for expected panics.",
             ]
 
+        if "swift" in langs or a.swift_components:
+            lines += [
+                "- Swift unit tests: XCTest framework; test classes inherit from `XCTestCase`.",
+                "- Async tests: use `async throws` test methods or `XCTestExpectation`.",
+                "- Use `XCTAssertEqual`, `XCTAssertNil`, `XCTAssertThrowsError` for assertions.",
+            ]
+            if a.swift_components:
+                if "spm" in a.swift_components:
+                    lines.append("- SPM tests: run `swift test`; test targets declared in `Package.swift`.")
+                if "xcodeproj" in a.swift_components:
+                    lines.append("- Xcode tests: run via `xcodebuild test -scheme <SchemeName>`.")
+
         if len(lines) == 1:
             lines.append("_(No test runner detected — add test patterns here.)_")
 
@@ -162,8 +206,23 @@ class CopilotGenerator(BaseGenerator):
 
         if test_cmds:
             checklist.append(f"Test suite passes: `{test_cmds[0]}`")
+        elif a.swift_components:
+            swift_cmds = _swift_build_commands(a)
+            checklist.append(f"Test suite passes: `{swift_cmds[1] if len(swift_cmds) > 1 else swift_cmds[0]}`")
+        elif a.rust_components:
+            checklist.append("Test suite passes: `cargo test`")
+        elif a.go_components:
+            checklist.append("Test suite passes: `go test ./...`")
+
         if lint_cmds:
             checklist.append(f"Linting clean: `{lint_cmds[0]}`")
+        elif a.rust_components:
+            checklist.append("Linting clean: `cargo clippy -- -D warnings`")
+            checklist.append("Formatting clean: `cargo fmt --check`")
+        elif a.go_components:
+            checklist.append("Linting clean: `go vet ./...`")
+        elif a.swift_components and "SwiftLint" in a.swift_components:
+            checklist.append("Linting clean: `swiftlint lint`")
 
         for item in checklist:
             lines.append(f"- [ ] {item}")

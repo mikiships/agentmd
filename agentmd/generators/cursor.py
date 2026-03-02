@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
-from agentmd.generators.base import BaseGenerator, _test_commands, _lint_commands
+from agentmd.generators.base import (
+    BaseGenerator,
+    _test_commands,
+    _lint_commands,
+    _swift_build_commands,
+    _rust_build_commands,
+    _go_build_commands,
+    _swift_conventions,
+    _rust_conventions,
+    _go_conventions,
+)
 
 
 class CursorGenerator(BaseGenerator):
@@ -67,6 +77,26 @@ class CursorGenerator(BaseGenerator):
                 "- Use the `?` operator for error propagation.",
                 "- Document all public items with `///` comments.",
             ]
+        if "swift" in langs:
+            rules += [
+                "- Use `guard let` / `if let` for optional unwrapping — avoid force `!`.",
+                "- Run `swift build` or `xcodebuild` after structural changes.",
+            ]
+            if a.swift_components:
+                swift_cmds = _swift_build_commands(a)
+                rules.append(f"- Build command: `{swift_cmds[0]}`")
+
+        # Rust-specific always rules
+        if a.rust_components:
+            rust_cmds = _rust_build_commands(a)
+            rules.append(f"- After changes, run: `{rust_cmds[0]}` then `{rust_cmds[1]}`")
+            rules.append("- Keep clippy clean: `cargo clippy -- -D warnings`")
+
+        # Go-specific always rules
+        if a.go_components:
+            go_cmds = _go_build_commands(a)
+            rules.append(f"- After changes, run: `{go_cmds[0]}` then `{go_cmds[1]}`")
+            rules.append("- Keep vet clean: `go vet ./...`")
 
         return "\n".join(rules)
 
@@ -95,6 +125,17 @@ class CursorGenerator(BaseGenerator):
             rules.append("- Never use `_` to discard returned errors silently.")
         if "rust" in langs:
             rules.append("- Never use `unwrap()` in library code without a clear comment.")
+        if "swift" in langs:
+            rules += [
+                "- Never force-unwrap (`!`) an optional without a guaranteed non-nil value.",
+                "- Never call `DispatchQueue.main.sync` from the main thread.",
+            ]
+
+        # Additional never rules based on detected components
+        if a.rust_components:
+            rules.append("- Never introduce `unsafe` without a documented safety invariant.")
+        if a.go_components:
+            rules.append("- Never assign a returned error to `_` without a comment explaining why.")
 
         return "\n".join(rules)
 
@@ -130,6 +171,19 @@ class CursorGenerator(BaseGenerator):
                 "**Go source:** `**/*.go`",
                 "**Go tests:** `**/*_test.go`",
             ]
+        if "swift" in langs:
+            lines += [
+                "**Swift source:** `**/*.swift`",
+                "**Xcode project:** `**/*.xcodeproj`, `**/*.xcworkspace`",
+            ]
+            if "spm" in a.swift_components:
+                lines.append("**Swift Package:** `Package.swift`, `Sources/**/*.swift`")
+        if "rust" in langs:
+            lines += [
+                "**Rust source:** `src/**/*.rs`",
+                "**Rust tests:** `tests/**/*.rs`",
+                "**Cargo config:** `Cargo.toml`, `Cargo.lock`",
+            ]
 
         if len(lines) == 1:
             lines.append("_(No file patterns detected — add patterns here.)_")
@@ -160,5 +214,16 @@ class CursorGenerator(BaseGenerator):
             lines.append(
                 f"- Framework-specific files for: {', '.join(a.frameworks)}"
             )
+
+        if a.swift_components:
+            lines.append("- For Swift: include `Package.swift` or `.xcodeproj` alongside source files.")
+            if "SwiftUI" in a.swift_components:
+                lines.append("- For SwiftUI: include the View file and its associated ViewModel/ObservableObject.")
+        if a.rust_components:
+            lines.append("- For Rust: include `Cargo.toml` when adding or changing dependencies.")
+            lines.append("- For Rust: include the `src/lib.rs` or `src/main.rs` entry point for structural context.")
+        if a.go_components:
+            lines.append("- For Go: include `go.mod` when modifying module dependencies.")
+            lines.append("- For Go: include the package's `*_test.go` alongside the implementation file.")
 
         return "\n".join(lines)

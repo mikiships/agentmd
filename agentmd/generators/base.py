@@ -53,6 +53,24 @@ class BaseGenerator(ABC):
         test_cmds = _test_commands(a)
         lint_cmds = _lint_commands(a)
         install_cmds = _install_commands(a)
+
+        # Swift / Rust / Go build commands (added when components are detected)
+        if a.swift_components:
+            swift_cmds = _swift_build_commands(a)
+            lines.append("**Swift / Xcode:**")
+            for cmd in swift_cmds:
+                lines.append(f"```\n{cmd}\n```")
+        if a.rust_components:
+            rust_cmds = _rust_build_commands(a)
+            lines.append("**Rust / Cargo:**")
+            for cmd in rust_cmds:
+                lines.append(f"```\n{cmd}\n```")
+        if a.go_components:
+            go_cmds = _go_build_commands(a)
+            lines.append("**Go:**")
+            for cmd in go_cmds:
+                lines.append(f"```\n{cmd}\n```")
+
         if install_cmds:
             lines.append("**Install dependencies:**")
             for cmd in install_cmds:
@@ -65,7 +83,7 @@ class BaseGenerator(ABC):
             lines.append("**Lint / format:**")
             for cmd in lint_cmds:
                 lines.append(f"```\n{cmd}\n```")
-        if not test_cmds and not lint_cmds and not install_cmds:
+        if not test_cmds and not lint_cmds and not install_cmds and not a.swift_components and not a.rust_components and not a.go_components:
             lines.append(
                 "_(No build tooling detected. Add your commands here so agents don't guess.)_"
             )
@@ -117,6 +135,16 @@ class BaseGenerator(ABC):
             )
         for convention in _language_conventions(a):
             lines.append(f"- {convention}")
+        # Language-specific deep conventions
+        if a.swift_components:
+            for c in _swift_conventions(a):
+                lines.append(f"- {c}")
+        if a.rust_components:
+            for c in _rust_conventions(a):
+                lines.append(f"- {c}")
+        if a.go_components:
+            for c in _go_conventions(a):
+                lines.append(f"- {c}")
         if len(lines) == 1:
             lines.append("_(No conventions detected — add project-specific conventions here.)_")
         return "\n".join(lines)
@@ -223,4 +251,119 @@ def _language_conventions(a: ProjectAnalysis) -> list[str]:
         conventions.append("Rust: prefer `?` operator over explicit `unwrap()`")
     if "ruby" in langs:
         conventions.append("Ruby: snake_case for methods/variables, CamelCase for modules/classes")
+    if "swift" in langs:
+        conventions.append("Swift: camelCase for variables/functions, PascalCase for types")
+        conventions.append("Swift: prefer value types (struct/enum) over classes where possible")
+        conventions.append("Swift: use guard-let for early returns rather than deep if-let nesting")
     return conventions
+
+
+# ------------------------------------------------------------------
+# Language-specific section helpers (shared across generators)
+# ------------------------------------------------------------------
+
+def _swift_build_commands(a: ProjectAnalysis) -> list[str]:
+    """Return Swift/Xcode build and test commands based on detected components."""
+    cmds: list[str] = []
+    components = a.swift_components
+    if "xcodeproj" in components or "xcworkspace" in components:
+        cmds.append("xcodebuild -scheme <SchemeName> build")
+        cmds.append("xcodebuild -scheme <SchemeName> test")
+    if "spm" in components:
+        cmds.append("swift build")
+        cmds.append("swift test")
+    if "SwiftLint" in components:
+        cmds.append("swiftlint lint")
+    if "swift-format" in components:
+        cmds.append("swift-format lint --recursive .")
+    # Fallback if we only know it's a Swift project
+    if not cmds:
+        cmds.append("swift build")
+        cmds.append("swift test")
+    return cmds
+
+
+def _rust_build_commands(a: ProjectAnalysis) -> list[str]:
+    """Return Rust/Cargo build and test commands based on detected components."""
+    cmds = [
+        "cargo build",
+        "cargo test",
+        "cargo clippy -- -D warnings",
+        "cargo fmt --check",
+    ]
+    return cmds
+
+
+def _go_build_commands(a: ProjectAnalysis) -> list[str]:
+    """Return Go build and test commands based on detected components."""
+    cmds = [
+        "go build ./...",
+        "go test ./...",
+        "go vet ./...",
+    ]
+    if "golangci-lint" in a.go_components or any(
+        "golangci" in linter.lower() for linter in a.linters
+    ):
+        cmds.append("golangci-lint run")
+    return cmds
+
+
+def _swift_conventions(a: ProjectAnalysis) -> list[str]:
+    """Return Swift-specific convention lines."""
+    lines: list[str] = []
+    components = a.swift_components
+    if "SwiftUI" in components:
+        lines.append("SwiftUI: prefer `@StateObject` for owned models, `@ObservedObject` for injected ones.")
+        lines.append("SwiftUI: keep View bodies thin — extract subviews and view models.")
+    if "UIKit" in components:
+        lines.append("UIKit: use Auto Layout with constraints or `UIStackView`; avoid hardcoded frames.")
+        lines.append("UIKit: lifecycle methods (`viewDidLoad`, `viewWillAppear`) should delegate to helpers.")
+    if "Combine" in components:
+        lines.append("Combine: store subscriptions in `Set<AnyCancellable>`; cancel on `deinit`.")
+    if "SwiftLint" in components:
+        lines.append("Linting: run `swiftlint lint` before committing; config in `.swiftlint.yml`.")
+    if "swift-format" in components:
+        lines.append("Formatting: run `swift-format lint --recursive .`; config in `.swift-format`.")
+    return lines
+
+
+def _rust_conventions(a: ProjectAnalysis) -> list[str]:
+    """Return Rust-specific convention lines."""
+    lines = [
+        "Error handling: use `?` to propagate errors; avoid `unwrap()` in library code.",
+        "Clippy: run `cargo clippy -- -D warnings`; treat all warnings as errors.",
+        "Formatting: run `cargo fmt` before every commit.",
+        "Documentation: all public items require `///` doc comments.",
+    ]
+    components = a.rust_components
+    frameworks = [c.lower() for c in components]
+    if "tokio" in frameworks:
+        lines.append("Async: use `#[tokio::main]` entry point; prefer `async/await` over raw futures.")
+    if any(f in frameworks for f in ("actix-web", "axum", "rocket", "warp")):
+        lines.append("Web: keep handler functions thin; extract business logic into service layers.")
+    if "serde" in frameworks:
+        lines.append("Serde: derive `Serialize`/`Deserialize` on data structs; use `#[serde(rename_all)]` for API compatibility.")
+    if "diesel" in frameworks or "sqlx" in frameworks:
+        lines.append("Database: run migrations before tests; never hard-code connection strings.")
+    return lines
+
+
+def _go_conventions(a: ProjectAnalysis) -> list[str]:
+    """Return Go-specific convention lines."""
+    lines = [
+        "Error handling: always check `err != nil`; never assign errors to `_` silently.",
+        "Package naming: short, lowercase, no underscores (e.g., `httputil` not `http_util`).",
+        "Interfaces: define interfaces at the point of use, not in the package that implements them.",
+        "Context: pass `context.Context` as the first argument to any blocking function.",
+    ]
+    components = a.go_components
+    frameworks = [c.lower() for c in components]
+    if any(f in frameworks for f in ("gin", "echo", "fiber", "chi")):
+        lines.append("HTTP: keep handler functions thin; extract business logic into service/use-case layers.")
+    if "gorm" in frameworks or "ent" in frameworks:
+        lines.append("Database: use migrations; never hardcode connection strings; close DB on shutdown.")
+    if "cobra" in frameworks:
+        lines.append("CLI: keep cobra command definitions in `cmd/`; business logic in separate packages.")
+    if "golangci-lint" in components:
+        lines.append("Linting: run `golangci-lint run`; config in `.golangci.yml`.")
+    return lines
