@@ -53,6 +53,24 @@ class TestIsPathCandidate:
         assert not _is_path_candidate(s), f"Expected {s!r} to NOT be a path candidate"
 
     @pytest.mark.parametrize("s", [
+        "n/a",
+        "N/A",
+        "w/o",
+        "and/or",
+        "yes/no",
+        "true/false",
+        "on/off",
+        "leading/trailing",
+        "Bash/shell",
+        "start/stop",
+        "spawn/release",
+        "agent/channel",
+        "input/output",
+    ])
+    def test_common_slash_words_are_not_paths(self, s: str) -> None:
+        assert not _is_path_candidate(s), f"Expected {s!r} to NOT be a path candidate"
+
+    @pytest.mark.parametrize("s", [
         "src/main.py",
         "tests/unit/test_scorer.py",
         "README.md",
@@ -105,6 +123,35 @@ Version history: v1.0.0, v0.9.8, v0.9.0.
         content = "Requires node ^18.0 and npm ^9.0."
         score, suggestions = score_freshness(content, project_root=str(tmp_path))
         assert score == 50.0, f"Caret ranges should not be flagged. Got {score}"
+
+
+class TestFreshnessCodeBlocks:
+    """Paths inside fenced code blocks and HTML comments should be ignored."""
+
+    def test_code_block_paths_ignored(self, tmp_path) -> None:
+        content = """# Project
+
+```bash
+cat > $AGENT_RELAY_OUTBOX/msg << 'EOF'
+TO: AgentName
+EOF
+```
+
+See `README.md` for details.
+"""
+        (tmp_path / "README.md").write_text("exists")
+        score, suggestions = score_freshness(content, project_root=str(tmp_path))
+        # Only README.md should be checked, code block paths ignored
+        assert score >= 80.0, f"Code block paths should be ignored. Got {score}"
+
+    def test_html_comment_paths_ignored(self, tmp_path) -> None:
+        content = """# Setup
+<!-- prpm:snippet:start @agent-relay/agent-relay-snippet@1.1.6 -->
+See `README.md` for details.
+"""
+        (tmp_path / "README.md").write_text("exists")
+        score, suggestions = score_freshness(content, project_root=str(tmp_path))
+        assert score >= 80.0, f"HTML comment paths should be ignored. Got {score}"
 
 
 class TestFreshnessUrls:

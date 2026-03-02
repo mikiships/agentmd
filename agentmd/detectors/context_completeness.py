@@ -235,18 +235,46 @@ def _is_path_candidate(s: str) -> bool:
         return False
     if _VERSION_RE.match(s):
         return False
+    # Reject common false-positive slash-separated words
+    if s.lower() in _FALSE_PATH_WORDS:
+        return False
     # Must contain / or have a non-numeric extension
     if "/" not in s and not re.search(r"\.[a-zA-Z]\w{0,5}$", s):
         return False
     # Extension must not be purely digits (e.g., "3.10" has ext "10")
     if _NUMERIC_EXT_RE.search(s):
         return False
+    # Slash-separated token with no extension: require at least one segment
+    # to look like a directory/file name (lowercase start, >2 chars)
+    if "/" in s and not re.search(r"\.\w{1,8}$", s):
+        segments = s.split("/")
+        if not any(len(seg) > 2 and seg[0].islower() for seg in segments):
+            return False
     return True
 
 
 def _strip_urls(content: str) -> str:
     """Remove URLs from content so their path-like sub-strings aren't extracted."""
     return re.sub(r"https?://\S+", "", content, flags=re.IGNORECASE)
+
+
+def _strip_code_blocks(content: str) -> str:
+    """Remove fenced code blocks (```...```) and HTML comments to avoid false
+    positives from example paths, protocol snippets, and shell commands."""
+    result = re.sub(r"```[^\n]*\n.*?```", "", content, flags=re.DOTALL)
+    result = re.sub(r"<!--.*?-->", "", result, flags=re.DOTALL)
+    return result
+
+
+# Short slash-separated tokens that are never file paths
+_FALSE_PATH_WORDS = frozenset({
+    "n/a", "w/o", "w/", "and/or", "yes/no", "true/false", "on/off",
+    "leading/trailing", "input/output", "read/write", "client/server",
+    "bash/shell", "start/stop", "open/close", "spawn/release",
+    "agent/channel", "request/response", "send/receive", "push/pull",
+    "encode/decode", "encrypt/decrypt", "serialize/deserialize",
+    "create/update", "add/remove", "show/hide", "enable/disable",
+})
 
 
 def score_freshness(content: str, project_root: str | None = None) -> tuple[float, list[str]]:
@@ -259,9 +287,9 @@ def score_freshness(content: str, project_root: str | None = None) -> tuple[floa
     """
     suggestions: list[str] = []
 
-    # Strip URLs first so sub-paths inside them (e.g., "re.html" in a URL) are
-    # not mistakenly extracted as local file references.
-    stripped = _strip_urls(content)
+    # Strip URLs and fenced code blocks first so embedded examples, protocol
+    # snippets, and shell commands don't produce false file-path matches.
+    stripped = _strip_code_blocks(_strip_urls(content))
 
     raw_paths = re.findall(r"[`'\"]?([\w./\-]+\.\w{1,8})[`'\"]?", stripped)
     # Also catch paths with leading ./ or explicit dir prefix
