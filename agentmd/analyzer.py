@@ -12,6 +12,7 @@ from agentmd.detectors import (
     detect_languages,
     detect_linters,
     detect_package_managers,
+    detect_swift_project,
     detect_test_runners,
 )
 from agentmd.detectors.common import collect_project_files, read_text, top_ranked
@@ -79,6 +80,7 @@ class ProjectAnalyzer:
         test_runner_findings = detect_test_runners(root, files)
         linter_findings = detect_linters(root, files)
         ci_findings = detect_ci_systems(root, files)
+        swift_findings = detect_swift_project(root, files)
 
         directory_structure = self._analyze_directory_structure(root, files)
         git_history = self._analyze_git_history(root)
@@ -91,6 +93,7 @@ class ProjectAnalyzer:
             "test_runners": test_runner_findings.evidence,
             "linters": linter_findings.evidence,
             "ci_systems": ci_findings.evidence,
+            "swift": swift_findings.evidence,
             "directory_structure": {
                 "source_directories": directory_structure.source_directories,
                 "test_directories": directory_structure.test_directories,
@@ -109,6 +112,7 @@ class ProjectAnalyzer:
             test_runners=test_runner_findings.values,
             linters=linter_findings.values,
             ci_systems=ci_findings.values,
+            swift_components=swift_findings.values,
             directory_structure=directory_structure,
             git_history=git_history,
             existing_context_files=context_files,
