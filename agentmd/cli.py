@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import json
 from pathlib import Path
 
 import typer
@@ -25,6 +26,7 @@ def _resolve_path(path: str | None) -> Path:
 @app.command()
 def scan(
     path: str = typer.Argument(None, help="Project root (defaults to cwd)"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """Analyze a project and print structured findings."""
     root = _resolve_path(path)
@@ -32,8 +34,13 @@ def scan(
         typer.echo(f"Error: {root} is not a directory", err=True)
         raise typer.Exit(1)
 
-    typer.echo(f"Scanning {root} ...\n")
     analysis = ProjectAnalyzer().analyze(root)
+
+    if json_output:
+        typer.echo(json.dumps(analysis.to_dict(), indent=2))
+        return
+
+    typer.echo(f"Scanning {root} ...\n")
 
     def bullet(items: list[str], label: str) -> None:
         if items:
@@ -77,6 +84,7 @@ def generate(
     agent: str = typer.Option(None, "--agent", "-a", help="Agent name: claude, codex, cursor, copilot"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview output without writing files"),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing context files"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """Generate context files for AI coding agents."""
     root = _resolve_path(path)
@@ -90,6 +98,30 @@ def generate(
 
     agents_to_run = {agent: GENERATOR_MAP[agent]} if agent else dict(GENERATOR_MAP)
     analysis = ProjectAnalyzer().analyze(root)
+
+    if json_output:
+        result: dict = {
+            "path": str(root),
+            "agents": [],
+            "files_written": [],
+            "files_skipped": [],
+            "contents": {},
+        }
+        for name, GeneratorClass in agents_to_run.items():
+            gen = GeneratorClass(analysis)
+            content = gen.generate()
+            output_path = root / gen.output_filename
+            result["agents"].append(name)
+            result["contents"][name] = content
+            if not dry_run:
+                if output_path.exists() and not force:
+                    result["files_skipped"].append(gen.output_filename)
+                else:
+                    existed = output_path.exists()
+                    output_path.write_text(content, encoding="utf-8")
+                    result["files_written"].append(gen.output_filename)
+        typer.echo(json.dumps(result, indent=2))
+        return
 
     for name, GeneratorClass in agents_to_run.items():
         gen = GeneratorClass(analysis)
@@ -120,6 +152,7 @@ def generate(
 @app.command()
 def score(
     path: str = typer.Argument(None, help="Project root or context file (defaults to cwd)"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """Score existing context files in a project (or a single file)."""
     resolved = _resolve_path(path)
@@ -130,7 +163,10 @@ def score(
         file_content = resolved.read_text(encoding="utf-8")
         project_root = str(resolved.parent)
         result = scorer.score(file_content, file_path=str(resolved), project_root=project_root)
-        _print_score(resolved.name, result)
+        if json_output:
+            typer.echo(json.dumps([result.to_dict()], indent=2))
+        else:
+            _print_score(resolved.name, result)
         return
 
     root = resolved
@@ -141,6 +177,7 @@ def score(
     analysis = ProjectAnalyzer().analyze(root)
 
     found_any = False
+    results_list = []
     for ctx in analysis.existing_context_files:
         if not ctx.present:
             continue
@@ -148,7 +185,14 @@ def score(
         file_path = (root / ctx.path).resolve()
         file_content = file_path.read_text(encoding="utf-8")
         result = scorer.score(file_content, file_path=str(file_path), project_root=str(root))
-        _print_score(ctx.name, result)
+        if json_output:
+            results_list.append(result.to_dict())
+        else:
+            _print_score(ctx.name, result)
+
+    if json_output:
+        typer.echo(json.dumps(results_list, indent=2))
+        return
 
     if not found_any:
         typer.echo("No context files found. Run `agentmd generate` first.")
@@ -176,6 +220,7 @@ def _print_score(name: str, result: object) -> None:
 def diff(
     path: str = typer.Argument(None, help="Project root (defaults to cwd)"),
     agent: str = typer.Option(None, "--agent", "-a", help="Agent name: claude, codex, cursor, copilot"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """Show diff between existing context files and generated output."""
     root = _resolve_path(path)
@@ -190,6 +235,34 @@ def diff(
     agents_to_run = {agent: GENERATOR_MAP[agent]} if agent else dict(GENERATOR_MAP)
     analysis = ProjectAnalyzer().analyze(root)
     any_diff = False
+
+    if json_output:
+        diff_results = []
+        for name, GeneratorClass in agents_to_run.items():
+            gen = GeneratorClass(analysis)
+            output_path = root / gen.output_filename
+            generated = gen.generate()
+            existing = output_path.read_text(encoding="utf-8") if output_path.exists() else ""
+            has_changes = existing != generated
+            diff_str: str | None = None
+            if has_changes:
+                from_label = str(output_path) if output_path.exists() else f"{gen.output_filename} (new file)"
+                diff_str = "".join(
+                    difflib.unified_diff(
+                        existing.splitlines(keepends=True),
+                        generated.splitlines(keepends=True),
+                        fromfile=from_label,
+                        tofile=f"{gen.output_filename} (generated)",
+                    )
+                )
+            diff_results.append({
+                "file": gen.output_filename,
+                "agent": name,
+                "has_changes": has_changes,
+                "diff": diff_str,
+            })
+        typer.echo(json.dumps(diff_results, indent=2))
+        return
 
     for name, GeneratorClass in agents_to_run.items():
         gen = GeneratorClass(analysis)
