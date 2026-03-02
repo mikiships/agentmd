@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentmd"
-version = "0.1.0"
+version = "0.2.0"
 description = "Analyze codebases and generate optimized context files for AI coding agents (Claude Code, Codex, Cursor, Copilot)"
 readme = "README.md"
 requires-python = ">=3.10"
