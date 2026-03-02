@@ -71,6 +71,7 @@ class ProjectAnalysis:
     linters: list[str] = field(default_factory=list)
     ci_systems: list[str] = field(default_factory=list)
     swift_components: list[str] = field(default_factory=list)
+    rust_components: list[str] = field(default_factory=list)
     directory_structure: DirectoryStructure = field(default_factory=DirectoryStructure)
     git_history: GitHistorySummary = field(default_factory=GitHistorySummary)
     existing_context_files: list[ExistingContextFile] = field(default_factory=list)
@@ -86,6 +87,7 @@ class ProjectAnalysis:
             "linters": self.linters,
             "ci_systems": self.ci_systems,
             "swift_components": self.swift_components,
+            "rust_components": self.rust_components,
             "directory_structure": self.directory_structure.to_dict(),
             "git_history": self.git_history.to_dict(),
             "existing_context_files": [item.to_dict() for item in self.existing_context_files],

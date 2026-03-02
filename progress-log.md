@@ -32,6 +32,29 @@
 - Unblock needed:
   - Enable write access to `.git/` for this workspace, then resume from current D1 state.
 
+## D1-v0.2 Complete — Swift/Xcode Detection — 2026-03-02
+
+Built `agentmd/detectors/swift.py` for Swift/Xcode project detection:
+
+**Detects:**
+- Project files: `.xcodeproj`, `Package.swift` (SPM), `Podfile` (CocoaPods), `.xcworkspace`
+- Frameworks (by scanning `.swift` source files): SwiftUI, UIKit, AppKit, Combine
+- Linters: SwiftLint (`swiftlint.yml`, `.swiftlint.yml`), swift-format (`.swift-format`)
+- CI: `xcodebuild` usage in any `.github/workflows/` YAML file
+
+**Files changed:**
+- `agentmd/detectors/swift.py` — new detector, `detect_swift_project(root, files) -> DetectorFindings`
+- `agentmd/detectors/__init__.py` — registered `detect_swift_project`
+- `agentmd/analyzer.py` — wired in `swift_findings`, passes `swift_components` to `ProjectAnalysis`, adds `"swift"` key to `detection_reasons`
+- `agentmd/types.py` — added `swift_components: list[str]` field to `ProjectAnalysis` + `to_dict()`
+- `tests/unit/test_swift_detector.py` — 15 tests: all project types, all frameworks, both linters, CI positive/negative, empty project, ordering guarantee
+
+**Test results:** 114 passed (99 pre-existing + 15 new), 0 failures, 0.30s
+
+**Commit:** 22795f9
+
+---
+
 ## D2 Complete — 2026-03-02
 
 Built the Context File Generator (D2):
