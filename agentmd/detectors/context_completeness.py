@@ -82,7 +82,9 @@ def score_specificity(content: str) -> tuple[float, list[str]]:
     points = 0
     total = 4
 
-    if re.search(r"[\w/]+\.\w{1,6}", content):
+    # Match file paths: must start with a letter/underscore or contain /
+    # Exclude version strings like "1.0.0", "3.10", etc.
+    if re.search(r"(?:[a-zA-Z_][\w\-]*/|[a-zA-Z_][\w\-]+\.(?![\d]+(?:\b|$))[a-zA-Z]\w{0,5})", content):
         points += 1
     else:
         suggestions.append("Reference actual file paths (e.g., `src/main.py`)")
@@ -191,15 +193,82 @@ def score_agent_awareness(content: str) -> tuple[float, list[str]]:
 # Freshness (10%)
 # ---------------------------------------------------------------------------
 
+# Patterns that look like paths but are NOT real filesystem paths — skip them.
+_VERSION_RE = re.compile(
+    r"""
+    ^
+    (?:
+        v?\d+\.\d+(?:\.\d+)*(?:[-+][\w.]+)?   # semver: 1.2.3, v1.0.0, 1.0.0-rc1
+      | [><=!^~]+\d[\d.]*                       # range: >=3.10, ^2.0, ~1.5
+      | \d+\.\d+(?:\.\d+)*                      # bare numeric: 3.10, 12.0.1
+    )
+    $
+    """,
+    re.VERBOSE,
+)
+_URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+_EMAIL_RE = re.compile(r"^[\w.+-]+@[\w.-]+\.\w+$")
+_BARE_NUMBER_RE = re.compile(r"^\d+(?:\.\d+)*$")
+
+# Only treat a string as a candidate file path if it has a directory separator
+# or an extension that doesn't look purely numeric.
+_PLAUSIBLE_PATH_RE = re.compile(
+    r"""
+    (?:
+        [./]          # contains / or starts with ./
+      | \.\w{1,6}$   # ends with an extension
+    )
+    """,
+    re.VERBOSE,
+)
+
+_NUMERIC_EXT_RE = re.compile(r"\.\d+$")
+
+
+def _is_path_candidate(s: str) -> bool:
+    """Return True only if *s* looks like an actual file/directory path."""
+    if _URL_RE.search(s):
+        return False
+    if _EMAIL_RE.match(s):
+        return False
+    if _BARE_NUMBER_RE.match(s):
+        return False
+    if _VERSION_RE.match(s):
+        return False
+    # Must contain / or have a non-numeric extension
+    if "/" not in s and not re.search(r"\.[a-zA-Z]\w{0,5}$", s):
+        return False
+    # Extension must not be purely digits (e.g., "3.10" has ext "10")
+    if _NUMERIC_EXT_RE.search(s):
+        return False
+    return True
+
+
+def _strip_urls(content: str) -> str:
+    """Remove URLs from content so their path-like sub-strings aren't extracted."""
+    return re.sub(r"https?://\S+", "", content, flags=re.IGNORECASE)
+
+
 def score_freshness(content: str, project_root: str | None = None) -> tuple[float, list[str]]:
     """Return (score 0-100, suggestions).
 
     Cross-references file paths mentioned in the content against the actual
-    project root (if provided).
+    project root (if provided). Version strings, URLs, email addresses, and
+    other non-path tokens are filtered out before filesystem checks to avoid
+    false positives.
     """
     suggestions: list[str] = []
 
-    mentioned_paths = re.findall(r"[`'\"]?([\w./\-]+\.\w{1,6})[`'\"]?", content)
+    # Strip URLs first so sub-paths inside them (e.g., "re.html" in a URL) are
+    # not mistakenly extracted as local file references.
+    stripped = _strip_urls(content)
+
+    raw_paths = re.findall(r"[`'\"]?([\w./\-]+\.\w{1,8})[`'\"]?", stripped)
+    # Also catch paths with leading ./ or explicit dir prefix
+    raw_paths += re.findall(r"[`'\"]?((?:\./|[\w\-]+/)[\w./\-]+)[`'\"]?", stripped)
+
+    mentioned_paths = [p for p in dict.fromkeys(raw_paths) if _is_path_candidate(p)]
+
     if not mentioned_paths:
         return 50.0, ["Mention specific project files so freshness can be verified"]
 
@@ -210,8 +279,6 @@ def score_freshness(content: str, project_root: str | None = None) -> tuple[floa
     missing: list[str] = []
     checked = 0
     for p in mentioned_paths:
-        if p.startswith("http") or p.count(".") > 3:
-            continue
         checked += 1
         if not (root / p).exists():
             missing.append(p)
