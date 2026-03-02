@@ -5,17 +5,29 @@ build-backend = "hatchling.build"
 [project]
 name = "agentmd"
 version = "0.1.0"
-description = "Analyze codebases and generate high-quality context files for AI coding agents."
+description = "Analyze codebases and generate optimized context files for AI coding agents (Claude Code, Codex, Cursor, Copilot)"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "agentmd contributors" }]
+authors = [{ name = "mikiships" }]
 dependencies = [
   "typer>=0.16.0",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development",
+  "License :: OSI Approved :: MIT License",
 ]
 
 [project.scripts]
 agentmd = "agentmd.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+  "pytest-cov>=5.0.0",
+]
 
 [dependency-groups]
 dev = [
