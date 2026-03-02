@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling>=1.24.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentmd"
+version = "0.1.0"
+description = "Analyze codebases and generate high-quality context files for AI coding agents."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "agentmd contributors" }]
+dependencies = [
+  "typer>=0.16.0",
+]
+
+[project.scripts]
+agentmd = "agentmd.cli:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.2.0",
+  "pytest-cov>=5.0.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["agentmd"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
