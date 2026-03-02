@@ -31,3 +31,20 @@
   - Work cannot proceed to D2 while staying contract-compliant.
 - Unblock needed:
   - Enable write access to `.git/` for this workspace, then resume from current D1 state.
+
+## D2 Complete — 2026-03-02
+
+Built the Context File Generator (D2):
+
+**Files created:**
+- `agentmd/generators/base.py` — BaseGenerator ABC with shared sections: project overview, commands, directory structure, conventions. Plus internal helpers for test/lint/install command inference.
+- `agentmd/generators/claude.py` — ClaudeGenerator → CLAUDE.md with /compact, /review, /init hints; style guide; anti-patterns; agent-specific tips
+- `agentmd/generators/codex.py` — CodexGenerator → AGENTS.md with sandbox awareness, apply_patch notes, approval gates checklist
+- `agentmd/generators/cursor.py` — CursorGenerator → .cursorrules with Always/Never rule blocks, file patterns, context preferences
+- `agentmd/generators/copilot.py` — CopilotGenerator → copilot-instructions.md with coding standards, test patterns, PR review checklist
+- `agentmd/generators/__init__.py` — Updated with exports and GENERATOR_MAP
+- `tests/unit/test_generators.py` — 41 tests covering all generators, edge cases, empty analysis
+
+**Test results:** 51 passed (10 D1 + 41 D2), 0 failures, 0.21s
+
+**Commit:** d752757
