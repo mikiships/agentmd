@@ -3,7 +3,7 @@ requires = ["hatchling>=1.24.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentmd"
+name = "agentmd-gen"
 version = "0.2.0"
 description = "Analyze codebases and generate optimized context files for AI coding agents (Claude Code, Codex, Cursor, Copilot)"
 readme = "README.md"
@@ -54,3 +54,6 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["agentmd"]
