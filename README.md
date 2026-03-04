@@ -150,6 +150,16 @@ Each context file is evaluated on five dimensions (total: 100 points):
 
 Run `agentmd score` after generating to see where your files land and what to improve.
 
+## Part of the Agent Toolkit
+
+agentmd is one of three tools for AI coding agent quality:
+
+- **[coderace](https://github.com/mikiships/coderace)** — Race coding agents against each other on real tasks. Automated, reproducible, scored comparisons.
+- **[agentmd](https://github.com/mikiships/agentmd)** — Generate and score context files for AI coding agents.
+- **[agentlint](https://github.com/mikiships/agentlint)** — Lint AI agent git diffs for risky patterns. Static analysis, no LLM required.
+
+Measure (coderace) → Optimize (agentmd) → Guard (agentlint).
+
 ## Contributing
 
 1. Fork the repo and create a branch
