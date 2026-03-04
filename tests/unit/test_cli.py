@@ -215,3 +215,48 @@ class TestDiff:
     def test_diff_invalid_path(self, tmp_path):
         result = runner.invoke(app, ["diff", str(tmp_path / "nope")])
         assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# drift
+# ---------------------------------------------------------------------------
+
+class TestDrift:
+    def test_drift_clean_exit_zero(self, tmp_path):
+        _make_project(tmp_path)
+        runner.invoke(app, ["generate", str(tmp_path), "--agent", "claude"])
+        result = runner.invoke(app, ["drift", str(tmp_path), "--agent", "claude"])
+        assert result.exit_code == 0
+        assert "fresh" in result.output
+
+    def test_drift_stale_exit_one(self, tmp_path):
+        _make_project(tmp_path)
+        runner.invoke(app, ["generate", str(tmp_path), "--agent", "claude"])
+        (tmp_path / "CLAUDE.md").write_text("# CLAUDE.md\n\n## Project Overview\nold content\n")
+        result = runner.invoke(app, ["drift", str(tmp_path), "--agent", "claude"])
+        assert result.exit_code == 1
+        assert "sections_changed" in result.output
+        assert "sections_stale" in result.output
+
+    def test_drift_missing_file_exit_one(self, tmp_path):
+        _make_project(tmp_path)
+        result = runner.invoke(app, ["drift", str(tmp_path), "--agent", "claude"])
+        assert result.exit_code == 1
+        assert "missing" in result.output
+
+    def test_drift_github_format(self, tmp_path):
+        _make_project(tmp_path)
+        result = runner.invoke(
+            app,
+            ["drift", str(tmp_path), "--agent", "claude", "--format", "github"],
+        )
+        assert result.exit_code == 1
+        assert "::warning file=CLAUDE.md,title=agentmd drift::" in result.output
+
+    def test_drift_invalid_format(self, tmp_path):
+        _make_project(tmp_path)
+        result = runner.invoke(
+            app,
+            ["drift", str(tmp_path), "--agent", "claude", "--format", "xml"],
+        )
+        assert result.exit_code != 0

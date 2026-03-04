@@ -265,3 +265,63 @@ class TestDiffJson:
         # diff should be a non-empty string when has_changes is True
         assert isinstance(data[0]["diff"], str)
         assert len(data[0]["diff"]) > 0
+
+
+# ---------------------------------------------------------------------------
+# drift --json
+# ---------------------------------------------------------------------------
+
+class TestDriftJson:
+    def test_produces_valid_json(self, tmp_path):
+        _make_project(tmp_path)
+        result = runner.invoke(app, ["drift", "--json", "--agent", "claude", str(tmp_path)])
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert isinstance(data, dict)
+
+    def test_json_schema(self, tmp_path):
+        _make_project(tmp_path)
+        result = runner.invoke(app, ["drift", "--json", "--agent", "claude", str(tmp_path)])
+        data = json.loads(result.output)
+        assert "schema" in data
+        assert data["schema"]["name"] == "agentmd.drift.report"
+        assert "summary" in data
+        assert "files" in data
+        assert len(data["files"]) == 1
+
+    def test_no_drift_exit_zero(self, tmp_path):
+        _make_project(tmp_path)
+        runner.invoke(app, ["generate", "--agent", "claude", str(tmp_path)])
+        result = runner.invoke(app, ["drift", "--json", "--agent", "claude", str(tmp_path)])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["has_drift"] is False
+        assert data["files"][0]["status"] == "fresh"
+
+    def test_detects_missing_context_file(self, tmp_path):
+        _make_project(tmp_path)
+        result = runner.invoke(app, ["drift", "--json", "--agent", "claude", str(tmp_path)])
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["files"][0]["status"] == "missing"
+        assert data["summary"]["sections_added"] >= 1
+
+    def test_stale_details_are_present(self, tmp_path):
+        _make_project(tmp_path)
+        runner.invoke(app, ["generate", "--agent", "claude", str(tmp_path)])
+        (tmp_path / "CLAUDE.md").write_text(
+            "# CLAUDE.md\n\n## Project Overview\noutdated\n",
+            encoding="utf-8",
+        )
+        result = runner.invoke(app, ["drift", "--json", "--agent", "claude", str(tmp_path)])
+        data = json.loads(result.output)
+        assert result.exit_code == 1
+        assert data["files"][0]["stale_details"]
+
+    def test_rejects_json_with_format_github(self, tmp_path):
+        _make_project(tmp_path)
+        result = runner.invoke(
+            app,
+            ["drift", "--json", "--format", "github", "--agent", "claude", str(tmp_path)],
+        )
+        assert result.exit_code != 0

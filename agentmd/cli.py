@@ -9,6 +9,12 @@ from pathlib import Path
 import typer
 
 from agentmd.analyzer import ProjectAnalyzer
+from agentmd.drift import (
+    detect_drift,
+    render_github_annotations,
+    render_text_report,
+    select_generators,
+)
 from agentmd.generators import GENERATOR_MAP
 from agentmd.scorer import ContextScorer
 
@@ -289,6 +295,47 @@ def diff(
 
     if not any_diff:
         typer.echo("All context files are up to date.")
+
+
+# ---------------------------------------------------------------------------
+# drift
+# ---------------------------------------------------------------------------
+
+@app.command()
+def drift(
+    path: str = typer.Argument(None, help="Project root (defaults to cwd)"),
+    agent: str = typer.Option(None, "--agent", "-a", help="Agent name: claude, codex, cursor, copilot"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    output_format: str = typer.Option("text", "--format", help="Output format: text or github"),
+) -> None:
+    """Detect context file drift against freshly generated output."""
+    root = _resolve_path(path)
+    if not root.is_dir():
+        typer.echo(f"Error: {root} is not a directory", err=True)
+        raise typer.Exit(1)
+
+    if agent and agent not in GENERATOR_MAP:
+        typer.echo(f"Error: unknown agent '{agent}'. Choose from: {', '.join(GENERATOR_MAP)}", err=True)
+        raise typer.Exit(1)
+
+    if output_format not in {"text", "github"}:
+        typer.echo("Error: --format must be one of: text, github", err=True)
+        raise typer.Exit(1)
+
+    if json_output and output_format != "text":
+        typer.echo("Error: --json cannot be combined with --format", err=True)
+        raise typer.Exit(1)
+
+    report = detect_drift(root, select_generators(agent))
+    if json_output:
+        typer.echo(json.dumps(report.to_dict(), indent=2))
+    elif output_format == "github":
+        typer.echo(render_github_annotations(report))
+    else:
+        typer.echo(render_text_report(report))
+
+    if report.has_drift:
+        raise typer.Exit(1)
 
 
 # ---------------------------------------------------------------------------
