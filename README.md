@@ -1,5 +1,10 @@
 # agentmd
 
+[![PyPI](https://img.shields.io/pypi/v/agentmd-gen)](https://pypi.org/project/agentmd-gen/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](#install)
+[![Tests](https://img.shields.io/badge/tests-384%20passing-brightgreen)](#)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey)](#license)
+
 agentmd analyzes your codebase and generates optimized context files for AI coding agents. Point it at any Python, Swift/Xcode, Rust, Go, TypeScript, or multi-language project and it produces ready-to-use `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, or Copilot instruction files — scored and ranked so your agent starts with the best possible picture of your project.
 
 ## What's New in 0.3.0
