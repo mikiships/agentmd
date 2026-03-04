@@ -1,0 +1,43 @@
+name: agentmd-drift
+
+on:
+  workflow_call:
+    inputs:
+      agent:
+        description: Agent context file to check (claude, codex, cursor, copilot)
+        required: false
+        type: string
+        default: "claude"
+      fail-on-drift:
+        description: Fail job when drift is detected
+        required: false
+        type: string
+        default: "true"
+      comment:
+        description: Post or update PR comment with markdown report
+        required: false
+        type: string
+        default: "true"
+      python-version:
+        description: Python version for agentmd runtime
+        required: false
+        type: string
+        default: "3.11"
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run agentmd drift
+        uses: ./
+        with:
+          agent: ${{ inputs.agent }}
+          fail-on-drift: ${{ inputs.fail-on-drift }}
+          comment: ${{ inputs.comment }}
+          python-version: ${{ inputs.python-version }}

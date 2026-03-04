@@ -253,6 +253,16 @@ class TestDrift:
         assert result.exit_code == 1
         assert "::warning file=CLAUDE.md,title=agentmd drift::" in result.output
 
+    def test_drift_markdown_format(self, tmp_path):
+        _make_project(tmp_path)
+        result = runner.invoke(
+            app,
+            ["drift", str(tmp_path), "--agent", "claude", "--format", "markdown"],
+        )
+        assert result.exit_code == 1
+        assert "## 🔍 agentmd Context Drift Report" in result.output
+        assert "| Section | Status | Detail |" in result.output
+
     def test_drift_invalid_format(self, tmp_path):
         _make_project(tmp_path)
         result = runner.invoke(

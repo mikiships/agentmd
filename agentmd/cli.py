@@ -15,6 +15,7 @@ from agentmd.drift import (
     render_text_report,
     select_generators,
 )
+from agentmd.formatters import render_markdown_report
 from agentmd.generators import GENERATOR_MAP
 from agentmd.scorer import ContextScorer
 
@@ -306,7 +307,7 @@ def drift(
     path: str = typer.Argument(None, help="Project root (defaults to cwd)"),
     agent: str = typer.Option(None, "--agent", "-a", help="Agent name: claude, codex, cursor, copilot"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
-    output_format: str = typer.Option("text", "--format", help="Output format: text or github"),
+    output_format: str = typer.Option("text", "--format", help="Output format: text, github, or markdown"),
 ) -> None:
     """Detect context file drift against freshly generated output."""
     root = _resolve_path(path)
@@ -318,8 +319,8 @@ def drift(
         typer.echo(f"Error: unknown agent '{agent}'. Choose from: {', '.join(GENERATOR_MAP)}", err=True)
         raise typer.Exit(1)
 
-    if output_format not in {"text", "github"}:
-        typer.echo("Error: --format must be one of: text, github", err=True)
+    if output_format not in {"text", "github", "markdown"}:
+        typer.echo("Error: --format must be one of: text, github, markdown", err=True)
         raise typer.Exit(1)
 
     if json_output and output_format != "text":
@@ -331,6 +332,8 @@ def drift(
         typer.echo(json.dumps(report.to_dict(), indent=2))
     elif output_format == "github":
         typer.echo(render_github_annotations(report))
+    elif output_format == "markdown":
+        typer.echo(render_markdown_report(report))
     else:
         typer.echo(render_text_report(report))
 

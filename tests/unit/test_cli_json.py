@@ -325,3 +325,11 @@ class TestDriftJson:
             ["drift", "--json", "--format", "github", "--agent", "claude", str(tmp_path)],
         )
         assert result.exit_code != 0
+
+    def test_rejects_json_with_format_markdown(self, tmp_path):
+        _make_project(tmp_path)
+        result = runner.invoke(
+            app,
+            ["drift", "--json", "--format", "markdown", "--agent", "claude", str(tmp_path)],
+        )
+        assert result.exit_code != 0

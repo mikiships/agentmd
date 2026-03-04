@@ -2,16 +2,17 @@
 
 agentmd analyzes your codebase and generates optimized context files for AI coding agents. Point it at any Python, Swift/Xcode, Rust, Go, TypeScript, or multi-language project and it produces ready-to-use `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, or Copilot instruction files — scored and ranked so your agent starts with the best possible picture of your project.
 
-## What's New in 0.2.0
+## What's New in 0.3.0
 
-- **Multi-language support** — full detection and generation for Python, Swift/Xcode, Rust, and Go projects (see [Supported Languages](#supported-languages))
-- **`--json` flag** — all commands now support structured JSON output for scripting and CI integration
-- **Freshness scoring fixes** — eliminated false positives in freshness scoring that penalized projects using current stable versions
+- **`drift` command** — detect stale context files with deterministic exit codes for CI (`0` fresh, `1` drift detected)
+- **Markdown drift reports** — `agentmd drift --format markdown` now generates PR-ready comments with section-level status + diffs
+- **GitHub Action support** — new composite action (`action.yml`) and reusable workflow example for pull request drift checks
+- **JSON schema-backed drift reports** — machine-readable output for automation with `agentmd drift --json`
 
 ## Install
 
 ```bash
-pip install agentmd
+pip install agentmd-gen
 ```
 
 ## Usage
@@ -67,10 +68,53 @@ Outputs a score (0–100) broken down by dimension.
 ### diff — compare context files
 
 ```bash
-agentmd diff CLAUDE.md AGENTS.md          # side-by-side diff of two context files
 agentmd diff --agent claude               # diff current file vs freshly generated output
 agentmd diff --json                       # output diff as JSON
 ```
+
+### drift — detect context drift
+
+```bash
+agentmd drift                             # check all agent context files in cwd
+agentmd drift --agent claude             # check only CLAUDE.md
+agentmd drift --json                     # machine-readable drift report
+agentmd drift --format github            # GitHub workflow command annotations
+agentmd drift --format markdown          # PR comment markdown report
+```
+
+Exit codes:
+
+- `0` = context files are fresh
+- `1` = drift detected (or missing context file)
+
+## GitHub Action
+
+Use the published action in your PR workflow:
+
+```yaml
+name: agentmd-drift
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mikiships/agentmd@v0.3.0
+        with:
+          agent: claude
+          fail-on-drift: "true"
+          comment: "true"
+          python-version: "3.11"
+```
+
+For reusable workflow usage, see `.github/workflows/agentmd-drift.yml`.
 
 ## Supported Agents
 

@@ -21,7 +21,7 @@ class SectionStaleDetail:
     """Detailed stale section report."""
 
     section: str
-    status: Literal["changed", "removed"]
+    status: Literal["added", "changed", "removed"]
     existing_line_count: int
     generated_line_count: int
     diff: str
@@ -47,6 +47,7 @@ class FileDriftReport:
     sections_added: list[str] = field(default_factory=list)
     sections_removed: list[str] = field(default_factory=list)
     sections_changed: list[str] = field(default_factory=list)
+    sections_fresh: list[str] = field(default_factory=list)
     sections_stale: list[str] = field(default_factory=list)
     stale_details: list[SectionStaleDetail] = field(default_factory=list)
     diff: str | None = None
@@ -60,12 +61,14 @@ class FileDriftReport:
             "sections_added": self.sections_added,
             "sections_removed": self.sections_removed,
             "sections_changed": self.sections_changed,
+            "sections_fresh": self.sections_fresh,
             "sections_stale": self.sections_stale,
             "stale_details": [item.to_dict() for item in self.stale_details],
             "summary": {
                 "added": len(self.sections_added),
                 "removed": len(self.sections_removed),
                 "changed": len(self.sections_changed),
+                "fresh": len(self.sections_fresh),
                 "stale": len(self.sections_stale),
             },
             "diff": self.diff,
@@ -126,6 +129,7 @@ def detect_drift(root: Path, agents: dict[str, type[BaseGenerator]]) -> DriftRep
                 sections_added=sections["sections_added"],
                 sections_removed=sections["sections_removed"],
                 sections_changed=sections["sections_changed"],
+                sections_fresh=sections["sections_fresh"],
                 sections_stale=sections["sections_stale"],
                 stale_details=sections["stale_details"],
                 diff=build_file_diff(
@@ -162,8 +166,18 @@ def compare_sections(existing: str, generated: str) -> dict[str, object]:
         for name in common_names
         if _normalize_section(existing_sections[name]) != _normalize_section(generated_sections[name])
     )
+    sections_fresh = sorted(common_names - set(sections_changed))
 
     stale_details: list[SectionStaleDetail] = []
+    for name in sections_added:
+        stale_details.append(
+            _section_detail(
+                section=name,
+                status="added",
+                existing="",
+                generated=generated_sections[name],
+            )
+        )
     for name in sections_changed:
         stale_details.append(
             _section_detail(
@@ -183,11 +197,12 @@ def compare_sections(existing: str, generated: str) -> dict[str, object]:
             )
         )
 
-    sections_stale = sorted({item.section for item in stale_details})
+    sections_stale = sorted(set(sections_changed) | set(sections_removed))
     return {
         "sections_added": sections_added,
         "sections_removed": sections_removed,
         "sections_changed": sections_changed,
+        "sections_fresh": sections_fresh,
         "sections_stale": sections_stale,
         "stale_details": stale_details,
     }
@@ -332,7 +347,7 @@ def _normalize_section(section: str) -> str:
 
 def _section_detail(
     section: str,
-    status: Literal["changed", "removed"],
+    status: Literal["added", "changed", "removed"],
     existing: str,
     generated: str,
 ) -> SectionStaleDetail:

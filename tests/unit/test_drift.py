@@ -57,7 +57,8 @@ def test_compare_sections_reports_added_removed_changed_and_stale() -> None:
     assert result["sections_removed"] == ["Removed Section"]
     assert result["sections_changed"] == ["Overview"]
     assert sorted(result["sections_stale"]) == ["Overview", "Removed Section"]
-    assert len(result["stale_details"]) == 2
+    assert result["sections_fresh"] == []
+    assert len(result["stale_details"]) == 3
 
 
 def test_detect_drift_reports_missing_context_file(tmp_path: Path) -> None:
