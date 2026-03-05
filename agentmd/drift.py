@@ -104,13 +104,18 @@ class DriftReport:
         }
 
 
-def detect_drift(root: Path, agents: dict[str, type[BaseGenerator]]) -> DriftReport:
+def detect_drift(
+    root: Path,
+    agents: dict[str, type[BaseGenerator]],
+    *,
+    minimal: bool = False,
+) -> DriftReport:
     """Generate fresh context and compare with checked-in versions."""
     analysis = ProjectAnalyzer().analyze(root)
     file_reports: list[FileDriftReport] = []
 
     for agent_name, generator_cls in agents.items():
-        generator = generator_cls(analysis)
+        generator = generator_cls(analysis, minimal=minimal)
         output_path = root / generator.output_filename
 
         generated_content = generator.generate()
