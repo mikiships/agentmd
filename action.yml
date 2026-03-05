@@ -1,6 +1,9 @@
 name: "agentmd Context Drift"
 description: "Run agentmd drift checks and optionally post a PR comment"
 author: "mikiships"
+branding:
+  icon: "file-text"
+  color: "blue"
 
 inputs:
   agent:
