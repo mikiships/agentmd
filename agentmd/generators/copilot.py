@@ -32,6 +32,9 @@ class CopilotGenerator(BaseGenerator):
             self._section_review_checklist(),
         ]
 
+    def _build_sections_minimal(self) -> list[str]:
+        return super()._build_sections_minimal()
+
     def _section_header(self) -> str:
         return (
             "# Copilot Instructions\n\n"

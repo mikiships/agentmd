@@ -30,6 +30,9 @@ class CodexGenerator(BaseGenerator):
             self._section_antipatterns(),
         ]
 
+    def _build_sections_minimal(self) -> list[str]:
+        return super()._build_sections_minimal()
+
     def _section_header(self) -> str:
         return (
             "# AGENTS.md\n\n"

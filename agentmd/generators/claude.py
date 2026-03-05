@@ -27,6 +27,11 @@ class ClaudeGenerator(BaseGenerator):
             self._section_antipatterns(),
         ]
 
+    def _build_sections_minimal(self) -> list[str]:
+        sections = super()._build_sections_minimal()
+        sections.append("- Use `/compact` when context grows large mid-session.")
+        return sections
+
     def _section_header(self) -> str:
         return "# CLAUDE.md\n\nAgent context for Claude Code. Keep this file up to date as the project evolves."
 

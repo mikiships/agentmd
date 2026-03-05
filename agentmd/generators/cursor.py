@@ -33,6 +33,9 @@ class CursorGenerator(BaseGenerator):
             self._section_context_preferences(),
         ]
 
+    def _build_sections_minimal(self) -> list[str]:
+        return super()._build_sections_minimal()
+
     def _section_header(self) -> str:
         return (
             "# .cursorrules\n\n"

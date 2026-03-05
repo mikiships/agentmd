@@ -92,6 +92,7 @@ def generate(
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview output without writing files"),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing context files"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    minimal: bool = typer.Option(False, "--minimal", "-m", help="Generate lean, essential-only context files"),
 ) -> None:
     """Generate context files for AI coding agents."""
     root = _resolve_path(path)
@@ -114,8 +115,10 @@ def generate(
             "files_skipped": [],
             "contents": {},
         }
+        if minimal:
+            result["mode"] = "minimal"
         for name, GeneratorClass in agents_to_run.items():
-            gen = GeneratorClass(analysis)
+            gen = GeneratorClass(analysis, minimal=minimal)
             content = gen.generate()
             output_path = root / gen.output_filename
             result["agents"].append(name)
@@ -131,7 +134,7 @@ def generate(
         return
 
     for name, GeneratorClass in agents_to_run.items():
-        gen = GeneratorClass(analysis)
+        gen = GeneratorClass(analysis, minimal=minimal)
         content = gen.generate()
         output_path = root / gen.output_filename
 
@@ -228,6 +231,7 @@ def diff(
     path: str = typer.Argument(None, help="Project root (defaults to cwd)"),
     agent: str = typer.Option(None, "--agent", "-a", help="Agent name: claude, codex, cursor, copilot"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    minimal: bool = typer.Option(False, "--minimal", "-m", help="Compare against minimal-mode output"),
 ) -> None:
     """Show diff between existing context files and generated output."""
     root = _resolve_path(path)
@@ -246,7 +250,7 @@ def diff(
     if json_output:
         diff_results = []
         for name, GeneratorClass in agents_to_run.items():
-            gen = GeneratorClass(analysis)
+            gen = GeneratorClass(analysis, minimal=minimal)
             output_path = root / gen.output_filename
             generated = gen.generate()
             existing = output_path.read_text(encoding="utf-8") if output_path.exists() else ""
@@ -272,7 +276,7 @@ def diff(
         return
 
     for name, GeneratorClass in agents_to_run.items():
-        gen = GeneratorClass(analysis)
+        gen = GeneratorClass(analysis, minimal=minimal)
         output_path = root / gen.output_filename
         generated = gen.generate()
 
@@ -308,6 +312,7 @@ def drift(
     agent: str = typer.Option(None, "--agent", "-a", help="Agent name: claude, codex, cursor, copilot"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
     output_format: str = typer.Option("text", "--format", help="Output format: text, github, or markdown"),
+    minimal: bool = typer.Option(False, "--minimal", "-m", help="Check drift against minimal-mode output"),
 ) -> None:
     """Detect context file drift against freshly generated output."""
     root = _resolve_path(path)
@@ -327,7 +332,7 @@ def drift(
         typer.echo("Error: --json cannot be combined with --format", err=True)
         raise typer.Exit(1)
 
-    report = detect_drift(root, select_generators(agent))
+    report = detect_drift(root, select_generators(agent), minimal=minimal)
     if json_output:
         typer.echo(json.dumps(report.to_dict(), indent=2))
     elif output_format == "github":

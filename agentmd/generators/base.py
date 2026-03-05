@@ -12,17 +12,49 @@ class BaseGenerator(ABC):
 
     output_filename: str = ""
 
-    def __init__(self, analysis: ProjectAnalysis) -> None:
+    def __init__(self, analysis: ProjectAnalysis, *, minimal: bool = False) -> None:
         self.analysis = analysis
+        self.minimal = minimal
 
     def generate(self) -> str:
         """Return the full content of the context file."""
-        sections = self._build_sections()
+        sections = self._build_sections_minimal() if self.minimal else self._build_sections()
         return "\n\n".join(s.strip() for s in sections if s.strip()) + "\n"
 
     @abstractmethod
     def _build_sections(self) -> list[str]:
         """Return ordered list of markdown sections."""
+
+    def _build_sections_minimal(self) -> list[str]:
+        """Return minimal sections: header, commands, trimmed directory structure."""
+        return [
+            self._section_header_minimal(),
+            self._section_commands(),
+            self._section_directory_structure_minimal(),
+        ]
+
+    def _section_header_minimal(self) -> str:
+        """One-line header for minimal mode. Subclasses may override."""
+        return f"# {self.output_filename}"
+
+    def _section_directory_structure_minimal(self) -> str:
+        """Directory structure showing only source and test directories."""
+        a = self.analysis
+        ds = a.directory_structure
+        lines = ["## Directory Structure"]
+        if ds.source_directories:
+            lines.append(
+                "**Source roots:** " + ", ".join(f"`{d}`" for d in ds.source_directories)
+            )
+        if ds.test_directories:
+            lines.append(
+                "**Test roots:** " + ", ".join(f"`{d}`" for d in ds.test_directories)
+            )
+        if not ds.source_directories and not ds.test_directories:
+            lines.append(
+                "_(No source or test directories detected.)_"
+            )
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------
     # Shared section builders

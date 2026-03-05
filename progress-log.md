@@ -27,7 +27,7 @@
   2. `touch .git/index.lock` -> failed: operation not permitted.
   3. `touch .git/objects/.write_test` -> failed: operation not permitted.
 - Impact:
-  - Contract rule \"Commit after each completed deliverable\" cannot be satisfied.
+  - Contract rule "Commit after each completed deliverable" cannot be satisfied.
   - Work cannot proceed to D2 while staying contract-compliant.
 - Unblock needed:
   - Enable write access to `.git/` for this workspace, then resume from current D1 state.
@@ -194,3 +194,44 @@ Built the Context File Generator (D2):
 - Added additional formatter matrix coverage in `tests/unit/test_formatters_matrix.py`.
 - `python3 -m pytest --collect-only` now reports **384 tests collected** (target 380+ met).
 - `python3 -m pytest -q` remains passing.
+
+---
+
+## Minimal Mode Build (v0.4.0) — 2026-03-05
+
+### D1: `--minimal` flag on `generate` command — Complete
+
+**What was built:**
+- Added `minimal: bool = False` parameter to `BaseGenerator.__init__`
+- Added `_build_sections_minimal()` to base: one-line header, commands, trimmed directory structure
+- Added `_section_header_minimal()` and `_section_directory_structure_minimal()` to base
+- Modified `generate()` to call `_build_sections_minimal()` when `self.minimal` is True
+- Updated all 4 generators (claude, codex, cursor, copilot) to support minimal mode
+- Claude minimal appends single `/compact` tip line
+- Added `--minimal`/`-m` flag to CLI `generate` command
+
+**Tests:** 58 new tests in `tests/unit/test_minimal_mode.py`, 442 total passing
+
+### D2: Minimal mode in `diff` and `drift` commands — Complete
+
+**What was built:**
+- Added `--minimal`/`-m` flag to `diff` command
+- Added `--minimal`/`-m` flag to `drift` command
+- Updated `detect_drift()` in `drift.py` to accept `minimal` kwarg
+- Pass-through to generator constructors in both commands
+
+### D3: JSON output includes minimal metadata — Complete
+
+**What was built:**
+- `generate --json --minimal` includes `"mode": "minimal"` in JSON output
+- Non-minimal mode does not include the `"mode"` key
+
+### D4: Score adjustments for minimal files — Complete
+
+**What was built:**
+- `ContextScorer.score()` accepts `minimal` kwarg
+- `score_completeness()` in minimal mode expects only commands + structure (not conventions)
+- `score_agent_awareness()` in minimal mode returns 100.0 (agent tips omitted by design)
+- All existing scorer tests unchanged and passing
+
+### D5: Documentation and version bump — Pending
