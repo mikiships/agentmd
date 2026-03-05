@@ -2,17 +2,17 @@
 
 [![PyPI](https://img.shields.io/pypi/v/agentmd-gen)](https://pypi.org/project/agentmd-gen/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](#install)
-[![Tests](https://img.shields.io/badge/tests-384%20passing-brightgreen)](#)
+[![Tests](https://img.shields.io/badge/tests-442%20passing-brightgreen)](#)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](#license)
 
 agentmd analyzes your codebase and generates optimized context files for AI coding agents. Point it at any Python, Swift/Xcode, Rust, Go, TypeScript, or multi-language project and it produces ready-to-use `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, or Copilot instruction files — scored and ranked so your agent starts with the best possible picture of your project.
 
-## What's New in 0.3.0
+## What's New in 0.4.0
 
-- **`drift` command** — detect stale context files with deterministic exit codes for CI (`0` fresh, `1` drift detected)
-- **Markdown drift reports** — `agentmd drift --format markdown` now generates PR-ready comments with section-level status + diffs
-- **GitHub Action support** — new composite action (`action.yml`) and reusable workflow example for pull request drift checks
-- **JSON schema-backed drift reports** — machine-readable output for automation with `agentmd drift --json`
+- **`--minimal` mode** — generate lean, essential-only context files. Research ([arXiv 2602.11988](https://arxiv.org/abs/2602.11988) "Evaluating AGENTS.md") found that verbose context files can reduce task success rates and increase costs by ~20%. Minimal mode generates only what agents can't infer: build/test/lint commands, source/test directory roots, and critical one-liners. Everything else (tips, style guides, anti-patterns, verbose overviews) is omitted.
+- **`--minimal` on `diff` and `drift`** — compare against minimal-mode output
+- **Scorer adjustments** — minimal files are not penalized for intentionally omitted sections
+- **JSON mode metadata** — `generate --json --minimal` includes `"mode": "minimal"` in output
 
 ## Install
 
@@ -40,8 +40,10 @@ agentmd generate --agent claude           # Claude Code (CLAUDE.md)
 agentmd generate --agent codex            # OpenAI Codex (AGENTS.md)
 agentmd generate --agent cursor           # Cursor (.cursorrules)
 agentmd generate --agent copilot          # GitHub Copilot (.github/copilot-instructions.md)
-agentmd generate --out ./docs/            # write to a custom directory
+agentmd generate --minimal                # lean, essential-only output (recommended)
+agentmd generate -m --agent claude        # minimal mode for a single agent
 agentmd generate --json                   # output generated content as JSON
+agentmd generate --json --minimal         # JSON with "mode": "minimal" metadata
 ```
 
 ### score — evaluate existing context files
@@ -74,6 +76,7 @@ Outputs a score (0–100) broken down by dimension.
 
 ```bash
 agentmd diff --agent claude               # diff current file vs freshly generated output
+agentmd diff --minimal --agent claude     # diff against minimal-mode output
 agentmd diff --json                       # output diff as JSON
 ```
 
@@ -82,6 +85,7 @@ agentmd diff --json                       # output diff as JSON
 ```bash
 agentmd drift                             # check all agent context files in cwd
 agentmd drift --agent claude             # check only CLAUDE.md
+agentmd drift --minimal --agent claude   # check drift against minimal-mode output
 agentmd drift --json                     # machine-readable drift report
 agentmd drift --format github            # GitHub workflow command annotations
 agentmd drift --format markdown          # PR comment markdown report
@@ -111,7 +115,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: mikiships/agentmd@v0.3.0
+      - uses: mikiships/agentmd@v0.4.0
         with:
           agent: claude
           fail-on-drift: "true"
@@ -120,6 +124,25 @@ jobs:
 ```
 
 For reusable workflow usage, see `.github/workflows/agentmd-drift.yml`.
+
+## Minimal Mode
+
+Research ([arXiv 2602.11988](https://arxiv.org/abs/2602.11988) "Evaluating AGENTS.md") found that verbose context files can **reduce** task success rates and increase costs by ~20%. The most valuable information is exact commands to run (build, test, lint). The least valuable: generic tips, style guides, and anti-patterns that agents already know.
+
+`--minimal` generates only what the agent can't infer itself:
+
+1. A one-line header
+2. Build, test, and lint commands (highest-value section)
+3. Source and test directory roots
+
+Everything else is omitted. For Claude, a single `/compact` tip is appended.
+
+```bash
+agentmd generate --minimal               # recommended for most projects
+agentmd generate --minimal --agent claude
+agentmd diff --minimal                   # compare existing files against minimal output
+agentmd drift --minimal                  # check drift against minimal baseline
+```
 
 ## Supported Agents
 

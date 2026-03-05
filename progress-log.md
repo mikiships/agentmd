@@ -234,4 +234,14 @@ Built the Context File Generator (D2):
 - `score_agent_awareness()` in minimal mode returns 100.0 (agent tips omitted by design)
 - All existing scorer tests unchanged and passing
 
-### D5: Documentation and version bump — Pending
+### D5: Documentation and version bump — Complete
+
+**What was built:**
+- Updated README.md with `--minimal` mode documentation and research rationale (cites arXiv 2602.11988)
+- Added minimal mode usage examples to generate, diff, and drift command docs
+- Added dedicated "Minimal Mode" section in README explaining the research context
+- Updated CHANGELOG.md with 0.4.0 release notes
+- Bumped version to 0.4.0 in pyproject.toml and agentmd/__init__.py
+- Updated test badge count to 442
+
+**Tests:** 442 total passing (384 existing + 58 new)

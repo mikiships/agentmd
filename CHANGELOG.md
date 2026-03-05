@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-03-05
+
+### Added
+
+- Added `--minimal` / `-m` flag to `generate` command for lean, essential-only context files.
+  - Produces only: one-line header, build/test/lint commands, source + test directory roots.
+  - Skips: tips, style guides, anti-patterns, verbose overviews, conventions.
+  - Claude generator appends a single `/compact` tip in minimal mode.
+  - Research rationale: arXiv 2602.11988 "Evaluating AGENTS.md" found verbose context reduces agent performance.
+- Added `--minimal` flag to `diff` command for comparing against minimal-mode output.
+- Added `--minimal` flag to `drift` command for checking drift against minimal baseline.
+- Added `"mode": "minimal"` field in JSON output when `--json --minimal` are combined on `generate`.
+- Added `minimal` parameter to scorer — completeness expects fewer sections, agent awareness gives full marks.
+- Added 58 new tests for minimal mode across generators, CLI, JSON, diff, drift, and scorer.
+
+### Changed
+
+- Bumped package version to `0.4.0`.
+- Updated README with minimal mode documentation, research rationale, and usage examples.
+
 ## [0.3.0] - 2026-03-04
 
 ### Added
