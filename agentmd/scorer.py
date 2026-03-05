@@ -69,16 +69,23 @@ class ContextScorer:
         "freshness": 0.10,
     }
 
-    def score(self, content: str, file_path: str = "", project_root: str | None = None) -> ScoringResult:
+    def score(
+        self,
+        content: str,
+        file_path: str = "",
+        project_root: str | None = None,
+        *,
+        minimal: bool = False,
+    ) -> ScoringResult:
         """Score *content* and return a :class:`ScoringResult`."""
         result = ScoringResult(file_path=file_path)
         all_suggestions: list[str] = []
 
         scorers = [
-            ("completeness", lambda c: score_completeness(c)),
+            ("completeness", lambda c: score_completeness(c, minimal=minimal)),
             ("specificity", lambda c: score_specificity(c)),
             ("clarity", lambda c: score_clarity(c)),
-            ("agent_awareness", lambda c: score_agent_awareness(c)),
+            ("agent_awareness", lambda c: score_agent_awareness(c, minimal=minimal)),
             ("freshness", lambda c: score_freshness(c, project_root)),
         ]
 

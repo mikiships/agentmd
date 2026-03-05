@@ -49,18 +49,27 @@ CONVENTIONS_PATTERNS = [
 ]
 
 
-def score_completeness(content: str) -> tuple[float, list[str]]:
+def score_completeness(content: str, *, minimal: bool = False) -> tuple[float, list[str]]:
     """Return (score 0-100, suggestions)."""
     suggestions: list[str] = []
     sub_scores: dict[str, float] = {}
 
-    checks = [
-        ("build_commands", BUILD_PATTERNS, "Add build commands (e.g., `make`, `cargo build`)"),
-        ("test_commands", TEST_PATTERNS, "Add test commands (e.g., `pytest`, `jest`)"),
-        ("lint_commands", LINT_PATTERNS, "Add lint/format commands (e.g., `ruff check .`)"),
-        ("structure", STRUCTURE_PATTERNS, "Describe project directory structure"),
-        ("conventions", CONVENTIONS_PATTERNS, "Document code conventions and patterns"),
-    ]
+    if minimal:
+        # Minimal files only need commands and structure
+        checks = [
+            ("build_commands", BUILD_PATTERNS, "Add build commands (e.g., `make`, `cargo build`)"),
+            ("test_commands", TEST_PATTERNS, "Add test commands (e.g., `pytest`, `jest`)"),
+            ("lint_commands", LINT_PATTERNS, "Add lint/format commands (e.g., `ruff check .`)"),
+            ("structure", STRUCTURE_PATTERNS, "Describe project directory structure"),
+        ]
+    else:
+        checks = [
+            ("build_commands", BUILD_PATTERNS, "Add build commands (e.g., `make`, `cargo build`)"),
+            ("test_commands", TEST_PATTERNS, "Add test commands (e.g., `pytest`, `jest`)"),
+            ("lint_commands", LINT_PATTERNS, "Add lint/format commands (e.g., `ruff check .`)"),
+            ("structure", STRUCTURE_PATTERNS, "Describe project directory structure"),
+            ("conventions", CONVENTIONS_PATTERNS, "Document code conventions and patterns"),
+        ]
 
     for key, patterns, suggestion in checks:
         found = _has_pattern(content, patterns)
@@ -172,8 +181,12 @@ AGENT_PATTERNS = [
 ]
 
 
-def score_agent_awareness(content: str) -> tuple[float, list[str]]:
+def score_agent_awareness(content: str, *, minimal: bool = False) -> tuple[float, list[str]]:
     """Return (score 0-100, suggestions)."""
+    if minimal:
+        # Minimal files intentionally omit agent tips — full marks by design
+        return 100.0, []
+
     lower = content.lower()
     matches = [p for p in AGENT_PATTERNS if p in lower]
 
