@@ -2,17 +2,16 @@
 
 [![PyPI](https://img.shields.io/pypi/v/agentmd-gen)](https://pypi.org/project/agentmd-gen/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](#install)
-[![Tests](https://img.shields.io/badge/tests-442%20passing-brightgreen)](#)
+[![Tests](https://img.shields.io/badge/tests-483%20passing-brightgreen)](#)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](#license)
 
 agentmd analyzes your codebase and generates optimized context files for AI coding agents. Point it at any Python, Swift/Xcode, Rust, Go, TypeScript, or multi-language project and it produces ready-to-use `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, or Copilot instruction files — scored and ranked so your agent starts with the best possible picture of your project.
 
-## What's New in 0.4.0
+## What's New in 0.5.0
 
-- **`--minimal` mode** — generate lean, essential-only context files. Research ([arXiv 2602.11988](https://arxiv.org/abs/2602.11988) "Evaluating AGENTS.md") found that verbose context files can reduce task success rates and increase costs by ~20%. Minimal mode generates only what agents can't infer: build/test/lint commands, source/test directory roots, and critical one-liners. Everything else (tips, style guides, anti-patterns, verbose overviews) is omitted.
-- **`--minimal` on `diff` and `drift`** — compare against minimal-mode output
-- **Scorer adjustments** — minimal files are not penalized for intentionally omitted sections
-- **JSON mode metadata** — `generate --json --minimal` includes `"mode": "minimal"` in output
+- **`--tiered` mode** — generate a directory of context files instead of a single file. Based on the Codified Context paper ([arXiv 2602.20478](https://arxiv.org/abs/2602.20478)) which showed single-file manifests don't scale past ~1000 lines. Tiered mode automatically detects subsystem boundaries and generates a Tier 1 `CLAUDE.md` (always loaded) plus per-subsystem Tier 2 files in `.agents/`.
+- **Subsystem detection** — automatically identifies subsystem boundaries from directory structure, package manifests, and source file distribution
+- **Trigger table** — Tier 1 `CLAUDE.md` includes a table mapping directories to their context files so agents know which subsystem context to load
 
 ## Install
 
@@ -44,6 +43,8 @@ agentmd generate --minimal                # lean, essential-only output (recomme
 agentmd generate -m --agent claude        # minimal mode for a single agent
 agentmd generate --json                   # output generated content as JSON
 agentmd generate --json --minimal         # JSON with "mode": "minimal" metadata
+agentmd generate --tiered                 # tiered context (CLAUDE.md + .agents/)
+agentmd generate --tiered --force         # overwrite existing tiered files
 ```
 
 ### score — evaluate existing context files
@@ -142,6 +143,40 @@ agentmd generate --minimal               # recommended for most projects
 agentmd generate --minimal --agent claude
 agentmd diff --minimal                   # compare existing files against minimal output
 agentmd drift --minimal                  # check drift against minimal baseline
+```
+
+## Tiered Mode
+
+The Codified Context paper ([arXiv 2602.20478](https://arxiv.org/abs/2602.20478)) showed that single-file context manifests don't scale past ~1000 lines of context. They built a three-tier architecture manually for a 108k-line C# project across 283 sessions. `--tiered` automates that pattern.
+
+`--tiered` detects subsystem boundaries in your project and generates:
+
+```
+project/
+├── CLAUDE.md              # Tier 1: conventions, build/test/lint, trigger table (~30 lines)
+└── .agents/
+    ├── api.md             # Tier 2: per-subsystem context
+    ├── database.md
+    └── web.md
+```
+
+The Tier 1 `CLAUDE.md` includes a trigger table that maps directories to their context files:
+
+```markdown
+## Context Files (load when working in these areas)
+| Directory | Context File |
+|-----------|-------------|
+| api/      | .agents/api.md |
+| db/       | .agents/database.md |
+| web/      | .agents/web.md |
+```
+
+Projects with fewer than 20 source files or 2000 lines are too small for tiered mode — use `generate` without `--tiered` instead.
+
+```bash
+agentmd generate --tiered                # detect subsystems and generate tiered context
+agentmd generate --tiered --force        # overwrite existing files
+agentmd generate --tiered --dry-run      # preview without writing
 ```
 
 ## Supported Agents

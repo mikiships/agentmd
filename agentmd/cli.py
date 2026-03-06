@@ -9,6 +9,8 @@ from pathlib import Path
 import typer
 
 from agentmd.analyzer import ProjectAnalyzer
+from agentmd.detectors.common import collect_project_files
+from agentmd.detectors.subsystem import detect_subsystems, is_project_too_small
 from agentmd.drift import (
     detect_drift,
     render_github_annotations,
@@ -17,6 +19,7 @@ from agentmd.drift import (
 )
 from agentmd.formatters import render_markdown_report
 from agentmd.generators import GENERATOR_MAP
+from agentmd.generators.tiered import TieredGenerator
 from agentmd.scorer import ContextScorer
 
 app = typer.Typer(help="Analyze codebases and generate agent context files.", add_completion=False)
@@ -93,12 +96,20 @@ def generate(
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing context files"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
     minimal: bool = typer.Option(False, "--minimal", "-m", help="Generate lean, essential-only context files"),
+    tiered: bool = typer.Option(
+        False, "--tiered",
+        help="Generate tiered context (CLAUDE.md + .agents/)",
+    ),
 ) -> None:
     """Generate context files for AI coding agents."""
     root = _resolve_path(path)
     if not root.is_dir():
         typer.echo(f"Error: {root} is not a directory", err=True)
         raise typer.Exit(1)
+
+    if tiered:
+        _generate_tiered(root, dry_run=dry_run, force=force)
+        return
 
     if agent and agent not in GENERATOR_MAP:
         typer.echo(f"Error: unknown agent '{agent}'. Choose from: {', '.join(GENERATOR_MAP)}", err=True)
@@ -153,6 +164,59 @@ def generate(
         output_path.write_text(content, encoding="utf-8")
         action = "overwrite" if existed else "wrote"
         typer.echo(f"  {action}  {output_path}")
+
+
+# ---------------------------------------------------------------------------
+# tiered generation helper
+# ---------------------------------------------------------------------------
+
+def _generate_tiered(root: Path, *, dry_run: bool = False, force: bool = False) -> None:
+    """Run tiered context generation."""
+    files = collect_project_files(root)
+
+    if is_project_too_small(root, files):
+        typer.echo("Project is small enough for single-file context, use generate without --tiered")
+        return
+
+    subsystems = detect_subsystems(root, files)
+    if not subsystems:
+        typer.echo("Project is small enough for single-file context, use generate without --tiered")
+        return
+
+    analysis = ProjectAnalyzer().analyze(root)
+    gen = TieredGenerator(analysis, subsystems)
+    output = gen.generate()
+
+    if dry_run:
+        for rel_path, content in output.all_files.items():
+            typer.echo(f"\n{'=' * 60}")
+            typer.echo(f"[dry-run] Would write: {root / rel_path}")
+            typer.echo(f"{'=' * 60}")
+            typer.echo(content)
+        return
+
+    written: list[str] = []
+    skipped: list[str] = []
+    for rel_path, content in output.all_files.items():
+        full_path = root / rel_path
+        if full_path.exists() and not force:
+            skipped.append(rel_path)
+            continue
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.write_text(content, encoding="utf-8")
+        written.append(rel_path)
+
+    if written:
+        typer.echo("Generated tiered context:")
+        for rel_path in written:
+            if rel_path == "CLAUDE.md":
+                typer.echo("  CLAUDE.md (Tier 1 — always loaded)")
+            else:
+                typer.echo(f"  {rel_path}")
+        typer.echo(f"{len(written)} context files total")
+
+    for rel_path in skipped:
+        typer.echo(f"  skip  {rel_path}  (exists; use --force to overwrite)")
 
 
 # ---------------------------------------------------------------------------

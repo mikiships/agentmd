@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-03-06
+
+### Added
+
+- Added `--tiered` flag to `generate` command for multi-file context generation.
+  - Detects subsystem boundaries from directory structure and package manifests.
+  - Generates Tier 1 `CLAUDE.md` (always loaded) with trigger table.
+  - Generates Tier 2 `.agents/<subsystem>.md` files with per-subsystem context.
+  - Projects below 20 source files or 2000 lines fall back to single-file mode.
+- New subsystem detector (`agentmd/detectors/subsystem.py`) identifies directory boundaries,
+  package manifests, `src/` subdir patterns, and monorepo packages.
+- New tiered generator (`agentmd/generators/tiered.py`) produces structured multi-file output.
+- Added 41 new tests for subsystem detection, tiered generation, and CLI integration.
+- Research reference: Codified Context paper (arXiv 2602.20478) — three-tier architecture.
+
+### Changed
+
+- Bumped package version to `0.5.0`.
+- Updated README with tiered mode documentation, paper reference, and usage examples.
+
 ## [0.4.0] - 2026-03-05
 
 ### Added
