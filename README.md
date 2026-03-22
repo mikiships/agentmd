@@ -2,10 +2,16 @@
 
 [![PyPI](https://img.shields.io/pypi/v/agentmd-gen)](https://pypi.org/project/agentmd-gen/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](#install)
-[![Tests](https://img.shields.io/badge/tests-483%20passing-brightgreen)](#)
+[![Tests](https://img.shields.io/badge/tests-510%20passing-brightgreen)](#)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](#license)
 
 agentmd analyzes your codebase and generates optimized context files for AI coding agents. Point it at any Python, Swift/Xcode, Rust, Go, TypeScript, or multi-language project and it produces ready-to-use `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, or Copilot instruction files — scored and ranked so your agent starts with the best possible picture of your project.
+
+> **Ecosystem validation:** [Next.js official docs](https://nextjs.org/docs/app/guides/ai-agents) now reference `AGENTS.md` as the standard entry point for AI coding agents. "Most AI coding agents — including Claude Code, Cursor, GitHub Copilot, and others — automatically read AGENTS.md when they start." agentmd generates and validates these files.
+
+## What's New in 0.6.0
+
+- **`agentmd eval`** — generate a context file AND measure its performance impact in one command. Closes the GENERATE → MEASURE loop. Integrates with [coderace](https://pypi.org/project/coderace/) (optional) for automated benchmarking.
 
 ## What's New in 0.5.0
 
@@ -45,6 +51,40 @@ agentmd generate --json                   # output generated content as JSON
 agentmd generate --json --minimal         # JSON with "mode": "minimal" metadata
 agentmd generate --tiered                 # tiered context (CLAUDE.md + .agents/)
 agentmd generate --tiered --force         # overwrite existing tiered files
+```
+
+### eval — measure what you generate
+
+Close the GENERATE → MEASURE loop: generate a context file and immediately benchmark its impact on agent performance.
+
+```bash
+agentmd eval ~/repos/myproject               # generate + benchmark (if coderace installed)
+agentmd eval --no-benchmark ~/repos/myproject # generate only, skip benchmarking
+agentmd eval --existing ~/repos/myproject    # benchmark existing CLAUDE.md without regenerating
+agentmd eval --json ~/repos/myproject        # JSON output for CI
+agentmd eval --json --no-benchmark .         # JSON without benchmarking
+```
+
+**Requires [coderace](https://pypi.org/project/coderace/) for performance measurement** (optional). If not installed, agentmd still generates the context file and shows an install hint. coderace is never a hard dependency.
+
+Example output:
+```
+Generating context file...
+  ✓ Analyzed 47 files across 8 source directories
+  ✓ Generated CLAUDE.md (52 lines)
+
+Measuring performance impact...
+  Running coderace context-eval (this takes 2-3 minutes)
+
+Context File Impact Report
+━━━━━━━━━━━━━━━━━━━━━━━━━
+  With context: avg score 84 (n=3 tasks)
+  Without context: avg score 67 (n=3 tasks)
+  Net improvement: +17 points (+25%)
+
+  ✓ Context file improves agent performance
+
+  Saved: CLAUDE.md
 ```
 
 ### score — evaluate existing context files
